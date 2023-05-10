@@ -17,38 +17,42 @@ class Car:
         self.color = color
 
 class Employee:
-    def __init__(self, name, age, dob, passport, emp_id):
+    def __init__(self, name, dob, passport, emp_id, basic_salary, commission=0):
         self.name = name
-        self.age = age
         self.dob = dob
         self.passport = passport
         self.emp_id = emp_id
-
+        self.basic_salary = basic_salary
+        self.commission = commission
+        
 class Manager(Employee):
-    def __init__(self, name, age, dob, passport, emp_id, department, job_title, salespersons):
-        super().__init__(name, age, dob, passport, emp_id)
+    def __init__(self, name, dob, passport, emp_id, department, job_title, salespersons, basic_salary, commission=0):
+        super().__init__(name, dob, passport, emp_id, basic_salary, commission=0)
         self.department = department
         self.job_title = job_title
         self.salespersons = salespersons
 
 class Salesperson(Employee):
-    def __init__(self, name, age, dob, passport, emp_id, department, job_title):
-        super().__init__(name, age, dob, passport, emp_id)
+    def __init__(self, name, dob, passport, emp_id, department, job_title, basic_salary, commission=0):
+        super().__init__(name, dob, passport, emp_id, basic_salary, commission=0)
         self.department = department
         self.job_title = job_title
 
+
 class Inventory:
-    def __init__(self, cars=None, quantities=None, prices=None):
+    def __init__(self, cars=None, sales=None, quantities=None, prices=None):
         self.cars = cars if cars is not None else []
+        self.sales = sales if sales is not None else []
         self.quantities = quantities if quantities is not None else []
         self.prices = prices if prices is not None else []
 
-class Sales:
-    def __init__(self, date, car, price, salesperson):
-        self.date = date
+class Sale:
+    def __init__(self, car, salesperson, sale_price):
         self.car = car
-        self.price = price
         self.salesperson = salesperson
+        self.sale_price = sale_price
+        self.profit = self.sale_price - self.car.price
+
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -73,6 +77,11 @@ class Application(tk.Frame):
         self.show_cars_button = tk.Button(self, text="Show Cars", command=self.show_cars)
         self.show_cars_button.grid(row=20, column=0, padx=10, pady=10)
 
+        add_sale_button = tk.Button(self.master, text="Add Sale", command=self.show_add_sale_window)
+        add_sale_button.grid(row=21, column=0, padx=10, pady=10)
+
+        self.show_sales_button = tk.Button(self.master, text="Show Sales", command=self.show_sales)
+        self.show_sales_button.grid(row=22, column=0, padx=10, pady=10)
     def show_add_employee_window(self):
         self.add_employee_window = tk.Toplevel(self.master)
         self.add_employee_window.title("Add Employee")
@@ -83,12 +92,6 @@ class Application(tk.Frame):
 
         self.name_entry = tk.Entry(self.add_employee_window)
         self.name_entry.pack()
-
-        self.age_label = tk.Label(self.add_employee_window, text="Age")
-        self.age_label.pack()
-
-        self.age_entry = tk.Entry(self.add_employee_window)
-        self.age_entry.pack()
 
         self.dob_label = tk.Label(self.add_employee_window, text="Date of Birth")
         self.dob_label.pack()
@@ -120,9 +123,17 @@ class Application(tk.Frame):
         self.job_title_entry = tk.Entry(self.add_employee_window)
         self.job_title_entry.pack()
 
+        self.basic_salary_label = tk.Label(self.add_employee_window, text="Basic Salary")
+        self.basic_salary_label.pack()
+
+        self.basic_salary_entry = tk.Entry(self.add_employee_window)
+        self.basic_salary_entry.pack()
+
         # Create the button to add the employee
         add_employee_button = tk.Button(self.add_employee_window, text="Add Employee", command=self.add_employee)
         add_employee_button.pack()
+
+
 
     def show_add_car_window(self):
         self.add_car_window = tk.Toplevel(self.master)
@@ -175,6 +186,143 @@ class Application(tk.Frame):
         add_car_button = tk.Button(self.add_car_window, text="Add Car", command=self.add_car)
         add_car_button.pack()
 
+    def show_add_sale_window(self):
+        self.add_sale_window = tk.Toplevel(self.master)
+        self.add_sale_window.title("Register a Sale")
+
+        # Create the widgets for the add sale window
+        self.car_id_label = tk.Label(self.add_sale_window, text="Car ID")
+        self.car_id_label.pack()
+
+        self.car_id_entry = tk.Entry(self.add_sale_window)
+        self.car_id_entry.pack()
+
+        self.salesperson_id_label = tk.Label(self.add_sale_window, text="Salesperson ID")
+        self.salesperson_id_label.pack()
+
+        self.salesperson_id_entry = tk.Entry(self.add_sale_window)
+        self.salesperson_id_entry.pack()
+
+        self.sale_price_label = tk.Label(self.add_sale_window, text="Sale Price")
+        self.sale_price_label.pack()
+
+        self.sale_price_entry = tk.Entry(self.add_sale_window)
+        self.sale_price_entry.pack()
+
+        # Create the button to register the sale
+        add_sale_button = tk.Button(self.add_sale_window, text="Register Sale", command=self.add_sale)
+        add_sale_button.pack()
+
+    def add_sale(self):
+        # Get the sale information from the entries in the add sale window
+        car_id = self.car_id_entry.get()
+        salesperson_id = self.salesperson_id_entry.get()
+        sale_price = float(self.sale_price_entry.get())
+
+        # Load the inventory and employees from the binary files
+        try:
+            with open("inventory.bin", "rb") as f:
+                inventory = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No inventory found.")
+            return
+
+        try:
+            with open("employees.bin", "rb") as f:
+                employees = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No employees found.")
+            return
+
+        # Find the car and salesperson with the given IDs
+        car = None
+        salesperson = None
+        for c in inventory.cars:
+            if c.car_id == car_id:
+                car = c
+                break
+        for s in employees:
+            if s.emp_id == salesperson_id and isinstance(s, Salesperson):
+                salesperson = s
+                break
+
+        # If the car or salesperson is not found, display an error message
+        if car is None:
+            tk.messagebox.showerror("Error", "No car found with that ID.")
+            return
+        elif salesperson is None:
+            tk.messagebox.showerror("Error", "No salesperson found with that ID.")
+            return
+
+        # Create a Sale object and add it to the inventory
+        sale = Sale(car, salesperson, sale_price)
+        inventory.sales.append(sale)
+
+        # Update the salesperson's commission and the manager's commission
+        profit = sale_price - car.price
+        salesperson_amount = profit * 0.065
+        manager_amount = profit * 0.035
+        company_amount = profit * 0.9
+        salesperson.commission += salesperson_amount
+        for manager in employees:
+            if isinstance(manager, Manager) and salesperson in manager.salespersons:
+                manager.commission += manager_amount
+
+        # Update the inventory to reflect the sale
+        car_index = inventory.cars.index(car)
+        inventory.quantities[car_index] -= 1
+        inventory.prices[car_index] = sale_price
+
+        # Save the updated inventory and employee data to the binary files
+        with open("inventory.bin", "wb") as f:
+            pickle.dump(inventory, f)
+
+        with open("employees.bin", "wb") as f:
+            pickle.dump(employees, f)
+
+        # Display a message to confirm the sale was added
+        tk.messagebox.showinfo("Sale added", "The sale has been added to the records.")
+
+        # Close the add sale window
+        self.add_sale_window.destroy()
+
+
+    def show_sales(self):
+        self.sales_window = tk.Toplevel(self.master)
+        self.sales_window.title("Sales List")
+
+        # Load the inventory and employees from the binary files
+        try:
+            with open("inventory.bin", "rb") as f:
+                inventory = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No inventory found.")
+            return
+
+        try:
+            with open("employees.bin", "rb") as f:
+                employees = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No employees found.")
+            return
+
+        # Load the sales from the inventory object
+        sales = inventory.sales
+
+        # Create a label and a "Delete Sale" button for each sale in the list of sales
+        for i, sale in enumerate(sales):
+            sale_frame = tk.Frame(self.sales_window)
+            sale_frame.grid(row=i, column=0, padx=10, pady=10)
+
+            tk.Label(sale_frame, text=f"Sale {i+1}").grid(row=0, column=0, padx=10, pady=10)
+            tk.Label(sale_frame, text=f"Salesperson: {sale.salesperson.name}").grid(row=1, column=0, padx=10, pady=10)
+            #tk.Label(sale_frame, text=f"Manager: {sale.manager.name}").grid(row=2, column=0, padx=10, pady=10)
+            tk.Label(sale_frame, text=f"Car: {sale.car.name}").grid(row=3, column=0, padx=10, pady=10)
+            tk.Label(sale_frame, text=f"Selling Price: {sale.sale_price}").grid(row=4, column=0, padx=10, pady=10)
+            #tk.Label(sale_frame, text=f"Profit: {sale.profit[i]}").grid(row=5, column=0, padx=10, pady=10)
+
+            delete_button = tk.Button(sale_frame, text="Delete Sale", command=lambda i=i: self.delete_sale(i))
+            delete_button.grid(row=6, column=0, padx=10, pady=10)
 
 
     def add_car(self):
@@ -183,9 +331,9 @@ class Application(tk.Frame):
         name = self.name_entry.get()
         car_type = self.type_entry.get()
         ID = self.id_entry.get()
-        price = self.price_entry.get()
-        fuel_capacity = self.fuel_entry.get()
-        max_speed = self.speed_entry.get()
+        price = float(self.price_entry.get())
+        fuel_capacity = float(self.fuel_entry.get())
+        max_speed = float(self.speed_entry.get())
         color = self.color_entry.get()
 
         # Create a new car object with the entered details
@@ -224,24 +372,24 @@ class Application(tk.Frame):
             employees = []
 
         name = self.name_entry.get()
-        age = self.age_entry.get()
         dob = self.dob_entry.get()
         passport = self.passport_entry.get()
         emp_id = self.emp_id_entry.get()
         department = self.department_entry.get()
         job_title = self.job_title_entry.get()
+        basic_salary = self.basic_salary_entry.get()
 
         # Determine whether the employee is a manager or salesperson
         if job_title.lower() == "manager":
             # Create a new manager object with the entered details
             salespersons = []
-            manager = Manager(name, age, dob, passport, emp_id, department, job_title, salespersons)
+            manager = Manager(name, dob, passport, emp_id, department, job_title, salespersons, basic_salary)
 
             # Add the new manager to the list of employees
             employees.append(manager)
         elif job_title.lower() == "salesperson":
             # Create a new salesperson object with the entered details
-            salesperson = Salesperson(name, age, dob, passport, emp_id, department, job_title)
+            salesperson = Salesperson(name, dob, passport, emp_id, department, job_title, basic_salary)
 
             # Add the new salesperson to the list of employees
             employees.append(salesperson)
@@ -301,9 +449,9 @@ class Application(tk.Frame):
 
         # Display the list of employees in the text box
         for employee in employees:
-            self.employee_info_text.insert(tk.END, f"Name: {employee.name}\nAge: {employee.age}\nDate of Birth: {employee.dob}\nPassport: {employee.passport}\nEmployee ID: {employee.emp_id}\nDepartment: {employee.department}\nJob Title: {employee.job_title}\n")
+            self.employee_info_text.insert(tk.END, f"Name: {employee.name}\nDate of Birth: {employee.dob}\nPassport: {employee.passport}\nEmployee ID: {employee.emp_id}\nDepartment: {employee.department}\nJob Title: {employee.job_title}\n")
             if isinstance(employee, Manager):
-                self.employee_info_text.insert(tk.END, f"Salespersons: {employee.salespersons}\n")
+                self.employee_info_text.insert(tk.END, f"Salespersons: {[e.name for e in employee.salespersons]}\n")
             self.employee_info_text.insert(tk.END, "\n")
 
     def display_employee_info(self):
@@ -323,17 +471,39 @@ class Application(tk.Frame):
                 # Display the employee's information in a new window
                 emp_info_window = tk.Toplevel(self.master)
                 emp_info_window.title("Employee Info")
-                emp_info_label = tk.Label(emp_info_window, text=f"Name: {employee.name}\nAge: {employee.age}\nDate of Birth: {employee.dob}\nPassport: {employee.passport}\nEmployee ID: {employee.emp_id}\nDepartment: {employee.department}\nJob Title: {employee.job_title}")
+                emp_info_label = tk.Label(emp_info_window, text=f"Name: {employee.name}\nDate of Birth: {employee.dob}\nPassport: {employee.passport}\nEmployee ID: {employee.emp_id}\nDepartment: {employee.department}\nJob Title: {employee.job_title}")
                 emp_info_label.pack()
                 
                 # Add a "Delete Employee" button to the new window
                 delete_button = tk.Button(emp_info_window, text="Delete Employee", command=lambda i=i: self.delete_employee(i, employees))
                 delete_button.pack()
 
+                # If the employee is a manager, add an option to assign salespersons
+                if isinstance(employee, Manager):
+                    salesperson_label = tk.Label(emp_info_window, text="Salespersons:")
+                    salesperson_label.pack()
+
+                    # Display a list of available salespersons
+                    available_salespersons = []
+                    for emp in employees:
+                        if isinstance(emp, Salesperson) and emp not in employee.salespersons:
+                            available_salespersons.append(emp)
+                            tk.Label(emp_info_window, text=f"{emp.name} ({emp.emp_id})").pack()
+
+                    # Add buttons to assign and remove salespersons
+                    for salesperson in available_salespersons:
+                        assign_button = tk.Button(emp_info_window, text=f"Assign {salesperson.name}", command=lambda emp=employee, sp=salesperson: self.assign_salesperson(employee_id, sp.emp_id))
+                        assign_button.pack()
+
+                    for salesperson in employee.salespersons:
+                        remove_button = tk.Button(emp_info_window, text=f"Remove {salesperson.name}", command=lambda emp=employee, sp=salesperson: self.remove_salesperson(employee_id, sp.emp_id))
+                        remove_button.pack()
+
                 return
 
         # If the employee is not found, display an error message
         tk.messagebox.showerror("Error", "No employee found with that ID.")
+
 
     def delete_employee(self, index, employees):
         # Delete the employee from the list
@@ -345,6 +515,99 @@ class Application(tk.Frame):
 
         # Display a message to confirm the employee was deleted
         tk.messagebox.showinfo("Employee deleted", "The employee has been deleted.")
+
+    def assign_salesperson(self, manager_id, salesperson_id):
+        # Load the list of employees from the binary file
+        try:
+            with open("employees.bin", "rb") as f:
+                employees = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No employees found.")
+            return
+
+        # Find the manager with the given ID
+        manager = None
+        for emp in employees:
+            if emp.emp_id == manager_id and isinstance(emp, Manager):
+                manager = emp
+                break
+
+        # Find the salesperson with the given ID
+        salesperson = None
+        for emp in employees:
+            if emp.emp_id == salesperson_id and isinstance(emp, Salesperson):
+                salesperson = emp
+                break
+
+        # If the manager or salesperson is not found, display an error message
+        if manager is None:
+            tk.messagebox.showerror("Error", "No manager found with that ID.")
+            return
+        elif salesperson is None:
+            tk.messagebox.showerror("Error", "No salesperson found with that ID.")
+            return
+
+        # If the salesperson is already assigned to the manager, display a message and return
+        if salesperson in manager.salespersons:
+            tk.messagebox.showinfo("Already Assigned", "This salesperson is already assigned to this manager.")
+            return
+
+        # Add the salesperson to the manager's list of salespersons
+        manager.salespersons.append(salesperson)
+
+        # Save the updated employee data to the binary file
+        with open("employees.bin", "wb") as f:
+            pickle.dump(employees, f)
+
+        # Display a message to confirm the salesperson was assigned to the manager
+        tk.messagebox.showinfo("Salesperson Assigned", "The salesperson has been assigned to the manager.")
+
+    def remove_salesperson(self, manager_id, salesperson_id):
+        # Load the list of employees from the binary file
+        try:
+            with open("employees.bin", "rb") as f:
+                employees = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No employees found.")
+            return
+
+        # Find the manager with the given ID
+        manager = None
+        for emp in employees:
+            if emp.emp_id == manager_id and isinstance(emp, Manager):
+                manager = emp
+                break
+
+        # Find the salesperson with the given ID
+        salesperson = None
+        for emp in employees:
+            if emp.emp_id == salesperson_id and isinstance(emp, Salesperson):
+                salesperson = emp
+                break
+
+        # If the manager or salesperson is not found, display an error message
+        if manager is None:
+            tk.messagebox.showerror("Error", "No manager found with that ID.")
+            return
+        elif salesperson is None:
+            tk.messagebox.showerror("Error", "No salesperson found with that ID.")
+            return
+
+        # If the salesperson is not assigned to the manager, display a message and return
+        if salesperson not in manager.salespersons:
+            tk.messagebox.showinfo("Not Assigned", "This salesperson is not assigned to this manager.")
+            return
+
+        # Remove the salesperson from the manager's list of salespersons
+        manager.salespersons.remove(salesperson)
+
+        # Save the updated employee data to the binary file
+        with open("employees.bin", "wb") as f:
+            pickle.dump(employees, f)
+
+        # Display a message to confirm the salesperson was removed from the manager's list
+        tk.messagebox.showinfo("Salesperson Removed", "The salesperson has been removed from the manager's list.")
+
 
     
     def show_cars(self):
@@ -411,6 +674,25 @@ class Application(tk.Frame):
 
         # Display a message to confirm the car was deleted
         tk.messagebox.showinfo("Car deleted", "The car has been deleted from the inventory.")
+
+    def delete_sale(self, index):
+        # Load the sales from the inventory file
+        try:
+            with open("inventory.bin", "rb") as f:
+                inventory = pickle.load(f)
+        except FileNotFoundError:
+            tk.messagebox.showerror("Error", "No inventory found.")
+            return
+
+        # Remove the sale from the inventory
+        sale = inventory.sales.pop(index)
+
+        # Save the updated inventory to the binary file
+        with open("inventory.bin", "wb") as f:
+            pickle.dump(inventory, f)
+
+        # Display a message to confirm the sale was deleted
+        tk.messagebox.showinfo("Sale deleted", "The sale has been deleted from the inventory.")
 
 
 
