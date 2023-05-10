@@ -318,15 +318,33 @@ class Application(tk.Frame):
             return
 
         # Find the employee with the given ID
-        for employee in employees:
+        for i, employee in enumerate(employees):
             if employee.emp_id == employee_id:
-                # Display the employee's information
-                info = f"Name: {employee.name}\nAge: {employee.age}\nDate of Birth: {employee.dob}\nPassport: {employee.passport}\nEmployee ID: {employee.emp_id}\nDepartment: {employee.department}\nJob Title: {employee.job_title}"
-                tk.messagebox.showinfo("Employee Info", info)
+                # Display the employee's information in a new window
+                emp_info_window = tk.Toplevel(self.master)
+                emp_info_window.title("Employee Info")
+                emp_info_label = tk.Label(emp_info_window, text=f"Name: {employee.name}\nAge: {employee.age}\nDate of Birth: {employee.dob}\nPassport: {employee.passport}\nEmployee ID: {employee.emp_id}\nDepartment: {employee.department}\nJob Title: {employee.job_title}")
+                emp_info_label.pack()
+                
+                # Add a "Delete Employee" button to the new window
+                delete_button = tk.Button(emp_info_window, text="Delete Employee", command=lambda i=i: self.delete_employee(i, employees))
+                delete_button.pack()
+
                 return
 
         # If the employee is not found, display an error message
         tk.messagebox.showerror("Error", "No employee found with that ID.")
+
+    def delete_employee(self, index, employees):
+        # Delete the employee from the list
+        employees.pop(index)
+
+        # Save the updated employee list to the binary file
+        with open("employees.bin", "wb") as f:
+            pickle.dump(employees, f)
+
+        # Display a message to confirm the employee was deleted
+        tk.messagebox.showinfo("Employee deleted", "The employee has been deleted.")
 
     
     def show_cars(self):
@@ -363,14 +381,38 @@ class Application(tk.Frame):
 
     def display_car_info(self, car_id, inventory):
     # Find the car with the given ID
-        for car in inventory.cars:
+        for i, car in enumerate(inventory.cars):
             if car.car_id == car_id:
-                # Display the car information
-                tk.messagebox.showinfo("Car Info", f"Name: {car.name}\nType: {car.car_type}\nPrice: {car.price}\nFuel Capacity: {car.fuel_capacity}\nMax Speed: {car.max_speed}\nColor: {car.color}")
+                # Display the car information in a new window
+                car_info_window = tk.Toplevel(self.cars_window)
+                car_info_window.title("Car Info")
+                car_info_label = tk.Label(car_info_window, text=f"Name: {car.name}\nType: {car.car_type}\nPrice: {car.price}\nFuel Capacity: {car.fuel_capacity}\nMax Speed: {car.max_speed}\nColor: {car.color}")
+                car_info_label.pack()
+                
+                # Add a "Delete Car" button to the new window
+                delete_button = tk.Button(car_info_window, text="Delete Car", command=lambda i=i: self.delete_car(i, inventory))
+                delete_button.pack()
+
                 return
 
         # If no car was found with the given ID, display an error message
         tk.messagebox.showerror("Car not found", "No car was found with the given ID.")
+
+
+    def delete_car(self, index, inventory):
+        # Delete the car from the inventory
+        inventory.cars.pop(index)
+        inventory.quantities.pop(index)
+        inventory.prices.pop(index)
+
+        # Save the updated inventory to the binary file
+        with open("inventory.bin", "wb") as f:
+            pickle.dump(inventory, f)
+
+        # Display a message to confirm the car was deleted
+        tk.messagebox.showinfo("Car deleted", "The car has been deleted from the inventory.")
+
+
 
 
 
